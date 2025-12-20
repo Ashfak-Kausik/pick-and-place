@@ -171,8 +171,6 @@ Once inside the container, open **two terminal sessions**:
 
 ```bash
 # Inside Docker container
-source ~/.bashrc
-cd ~/panda_ws
 source install/setup.bash
 ros2 launch panda_bringup pick_and_place.launch.py
 ```
@@ -199,8 +197,6 @@ docker exec -it franka_panda_color_sorter bash
 Inside the new terminal:
 
 ```bash
-source ~/.bashrc
-cd ~/panda_ws
 source install/setup.bash
 ros2 run pymoveit2 pick_and_place.py --ros-args -p target_color:=R
 ```
@@ -396,7 +392,7 @@ rosdep install --from-paths src --ignore-src --skip-keys=opencv_python -r -y
 ### 4.4 Build the Workspace
 
 ```bash
-colcon build --symlink-install
+colcon build
 ```
 
 **Note:** Initial build may take 10-15 minutes depending on your system.
@@ -502,9 +498,6 @@ printenv | grep ROS
 
 # Verify MoveIt installation
 ros2 pkg list | grep moveit
-
-# Check for errors
-ros2 wtf
 
 # Test motion planning
 ros2 launch panda_moveit moveit.launch.py
