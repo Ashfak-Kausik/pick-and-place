@@ -116,7 +116,7 @@ class ColorDetector(Node):
                         if color_id == "B":
                             pt_base[1] -= 0.0215
                         elif color_id == "G":
-                            pt_base[1] += 0.01
+                            pt_base[1] += 0.02
 
                         # Publish color ID + coordinates in panda_link0 frame
                         msg_str = f"{color_id},{pt_base[0]:.3f},{pt_base[1]:.3f},{pt_base[2]:.3f}"
