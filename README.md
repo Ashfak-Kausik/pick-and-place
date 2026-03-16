@@ -13,7 +13,7 @@ A ROS2 + Gazebo simulation of a Franka Panda robotic arm that uses YOLOv12 to de
 | ROS2 Humble | Robot middleware |
 | Gazebo | Physics simulation |
 | MoveIt2 | Motion planning |
-| YOLOv12 (Ultralytics) | Fastener detection |
+| YOLOv11 (Ultralytics) | Fastener detection |
 | Franka Panda | 7-DOF robotic arm |
 | Python 3 | Implementation |
 
@@ -69,5 +69,3 @@ Supported targets: `Clip`, `Rivet`, `Screw`
 
 ## Author
 **MD Ashfakul Karim Kausik**  
-BSc IPE, MIST Bangladesh  
-Research Assistant, EcoTech Research Lab
