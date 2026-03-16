@@ -69,3 +69,9 @@ Supported targets: `Clip`, `Rivet`, `Screw`
 
 ## Author
 **MD Ashfakul Karim Kausik**  
+
+## Acknowledgements
+This project extends the Franka Panda Color Sorting Robot 
+by [MechaMind-Labs](https://github.com/MechaMind-Labs/Franka_Panda_Color_Sorting_Robot),
+replacing HSV color detection with a custom-trained YOLOv12 model 
+for industrial fastener classification.
