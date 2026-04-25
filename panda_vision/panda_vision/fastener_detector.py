@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from rclpy.duration import Duration
 import cv2
 import numpy as np
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import String
 from cv_bridge import CvBridge
-import tf2_ros
-import tf_transformations
 from ultralytics import YOLO
 import os
+
+# ── World z of table surface in Gazebo (metres) ──────────────────────────────
+# Check in Gazebo: click the table → Pose → Z position + half table height
+# Typical value for a 0.05m thick table at z=0.0 ground = 0.025
+# For CoffeeTables in your world, measure from Gazebo Entity Tree → Pose
+TABLE_Z = 0.78  # metres — tune this to match your Gazebo world
 
 class FastenerDetector(Node):
     def __init__(self):
@@ -19,41 +22,68 @@ class FastenerDetector(Node):
         # Load YOLOv12 model
         model_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
-            '..', '..', '..', '..', 
+            '..', '..', '..', '..',
             'share', 'panda_vision', 'models', 'best.pt'
         )
         model_path = os.path.normpath(model_path)
         self.get_logger().info(f"Loading YOLOv12 model from: {model_path}")
         self.model = YOLO(model_path)
-        self.class_names = self.model.names  # {0: 'Clip', 1: 'Rivet', 2: 'Screw'}
+        self.class_names = self.model.names
         self.get_logger().info(f"Classes: {self.class_names}")
 
-        # Target fastener to pick (set via ROS parameter)
-        self.declare_parameter('target_fastener', 'Clip')
-        self.target = self.get_parameter('target_fastener').get_parameter_value().string_value
-        self.get_logger().info(f"Target fastener: {self.target}")
-
-        # Subscriber
-        self.image_sub = self.create_subscription(
-            Image, '/camera/image_raw', self.image_callback, 10)
-
-        # Publisher
-        self.coords_pub = self.create_publisher(String, '/color_coordinates', 10)
-
-        # OpenCV bridge
-        self.bridge = CvBridge()
-
-        # TF2 setup
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-
-        # Camera intrinsic parameters (same as original)
+        # Camera intrinsics — will be updated from /camera/camera_info
         self.fx = 585.0
         self.fy = 588.0
         self.cx = 320.0
         self.cy = 160.0
+        self.camera_height = None  # set from TF or hardcoded below
+
+        # Camera pose in world frame
+        # Check Gazebo: panda → panda_link0 → camera link pose
+        # These are approximate — tune after checking Gazebo
+        self.camera_world_x = 0.0    # camera x in world frame
+        self.camera_world_y = 0.0    # camera y in world frame
+        self.camera_world_z = 1.5    # camera height above ground
+
+        # Subscribers
+        self.image_sub = self.create_subscription(
+            Image, '/camera/image_raw', self.image_callback, 10)
+        self.info_sub = self.create_subscription(
+            CameraInfo, '/camera/camera_info', self.camera_info_callback, 10)
+
+        # Publisher — publishes ALL detected fasteners, one message each
+        self.coords_pub = self.create_publisher(String, '/color_coordinates', 10)
+
+        self.bridge = CvBridge()
+
+        # Track published objects to avoid flooding (reset every 5 seconds)
+        self.published_this_frame = set()
 
         self.get_logger().info("YOLOv12 Fastener Detector Node Started!")
+        self.get_logger().info(
+            f"Publishing ALL fastener classes to /color_coordinates")
+
+    def camera_info_callback(self, msg):
+        """Update camera intrinsics from actual camera info."""
+        self.fx = msg.k[0]
+        self.fy = msg.k[4]
+        self.cx = msg.k[2]
+        self.cy = msg.k[5]
+
+    def pixel_to_world(self, u, v):
+        """
+        Convert pixel coordinates to world XY coordinates.
+        Assumes camera is looking straight down at the table.
+       
+        depth = distance from camera to table surface
+        x_world = camera_x + (u - cx) * depth / fx
+        y_world = camera_y + (v - cy) * depth / fy
+        z_world = TABLE_Z (fixed table height)
+        """
+        depth = self.camera_world_z - TABLE_Z
+        x_world = self.camera_world_x + (u - self.cx) * depth / self.fx
+        y_world = self.camera_world_y + (v - self.cy) * depth / self.fy
+        return x_world, y_world, TABLE_Z
 
     def image_callback(self, msg):
         try:
@@ -62,55 +92,61 @@ class FastenerDetector(Node):
             self.get_logger().error(f"Failed to convert image: {e}")
             return
 
-        # Run YOLOv12 inference
         results = self.model(frame, verbose=False)
+        self.published_this_frame = set()
 
         for result in results:
-            boxes = result.boxes
-            if boxes is None:
+            if result.boxes is None:
                 continue
 
-            for box in boxes:
-                # Get class and confidence
+            for box in result.boxes:
                 cls_id = int(box.cls[0])
-                conf = float(box.conf[0])
-                label = self.class_names[cls_id]  # 'Clip', 'Rivet', or 'Screw'
+                conf  = float(box.conf[0])
+                label = self.class_names[cls_id]
 
-                # Only process detections above confidence threshold
-                if conf < 0.1:
+                if conf < 0.25:
                     continue
 
-                # Get bounding box pixel coordinates
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cx_pix = (x1 + x2) // 2
                 cy_pix = (y1 + y2) // 2
 
-                # Draw bounding box and label on frame
-                color_map = {'Clip': (255, 0, 0), 'Rivet': (0, 255, 0), 'Screw': (0, 0, 255)}
+                # Draw detection
+                color_map = {
+                    'Clip':  (255, 0,   0),
+                    'Rivet': (0,   255, 0),
+                    'Screw': (0,   0,   255)
+                }
                 draw_color = color_map.get(label, (0, 255, 255))
                 cv2.rectangle(frame, (x1, y1), (x2, y2), draw_color, 2)
                 cv2.putText(frame, f"{label} {conf:.2f}", (x1, y1 - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, draw_color, 2)
 
-                # Only publish coordinates for the target fastener
-                if label != self.target:
-                    continue
+                # Convert to world coordinates
+                x_w, y_w, z_w = self.pixel_to_world(cx_pix, cy_pix)
 
-                # Convert pixel -> camera frame (same math as original)
-                # Use known Gazebo world positions directly
-                # Use known positions matching original color_detector output format
-                # Original published z=1.100 (camera height + box height via TF)
-                position_map = {
-                    'Screw': [0.600, -0.226, 1.100],  # green box
-                    'Rivet': [0.600,  0.000, 1.100],  # red box
-                    'Clip':  [0.600,  0.206, 1.100],  # blue box
+                # model_name matches Gazebo entity name
+                # e.g. "green_box", "red_box", "blue_box" from your world
+                model_name_map = {
+                    'Clip':  'blue_box',
+                    'Rivet': 'red_box',
+                    'Screw': 'green_box',
                 }
-                pos = position_map[label]
-                msg_str = f"{label},{pos[0]:.3f},{pos[1]:.3f},{pos[2]:.3f}"
-                self.coords_pub.publish(String(data=msg_str))
-                self.get_logger().info(f"Detected: {msg_str} (conf: {conf:.2f})")
+                model_name = model_name_map.get(label, label.lower())
 
-        # Show detection window
+                # Publish: "Class,x,y,z,model_name"
+                msg_str = (f"{label},"
+                          f"{x_w:.4f},"
+                          f"{y_w:.4f},"
+                          f"{z_w:.4f},"
+                          f"{model_name}")
+
+                self.coords_pub.publish(String(data=msg_str))
+                self.get_logger().info(
+                    f"Published: {msg_str}  (conf={conf:.2f}  "
+                    f"pixel=[{cx_pix},{cy_pix}])")
+
+        # Show window
         try:
             cv2.namedWindow("YOLOv12 Fastener Detection", cv2.WINDOW_NORMAL)
             cv2.resizeWindow("YOLOv12 Fastener Detection", 640, 320)
