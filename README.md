@@ -10,23 +10,11 @@ A proof-of-concept robotic integration study demonstrating end-to-end deployment
 ---
 ## Simulation Screenshots
 
-![YOLO Detection](media/Screenshot%20from%202026-04-25%2004-29-29.png)
-*YOLOv11 detecting fastener classes*
-
-![Fastener Detector](media/Screenshot%20from%202026-04-25%2004-29-11.png)
-*Fastener detection overlay*
-
-![Terminal Output](media/Screenshot%20from%202026-04-25%2004-28-35.png)
-*Detection terminal output*
-
-![Arm at Pick Position](media/Screenshot%20from%202026-04-25%2007-04-05.png)
-*Franka Panda arm reaching grasp position*
-
-![Arm Motion](media/Screenshot%20from%202026-04-25%2007-04-28.png)
-*Franka Panda arm executing pick motion*
-
-![Gazebo Simulation](media/Screenshot%20from%202026-04-25%2006-16-51.png)
-*Gazebo simulation environment*
+| | |
+|---|---|
+| ![Detection](media/Screenshot%20from%202026-04-25%2004-29-29.png) | ![Detector](media/Screenshot%20from%202026-04-25%2004-29-11.png) |
+| ![Terminal](media/Screenshot%20from%202026-04-25%2004-28-35.png) | ![Pick Position](media/Screenshot%20from%202026-04-25%2007-04-05.png) |
+| ![Arm Motion](media/Screenshot%20from%202026-04-25%2007-04-28.png) | ![Gazebo](media/Screenshot%20from%202026-04-25%2006-16-51.png) |
 
 
 ## Overview
@@ -87,6 +75,7 @@ This simulation validates that YOLOv12's detection capability — trained on a m
 
 ## Project Structure
 
+```
 ├── panda_bringup/          # Master launch file
 ├── panda_vision/           # YOLOv12 detection node
 │   └── panda_vision/
@@ -99,6 +88,7 @@ This simulation validates that YOLOv12's detection capability — trained on a m
 │       └── pick_and_place.py      # Autonomous multi-class sorting node
 ├── pick_place_detections.txt      # Full detection log from integration study
 └── Dockerfile
+```
 
 ---
 
