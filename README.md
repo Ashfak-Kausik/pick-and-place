@@ -1,77 +1,152 @@
-# Franka Panda Fastener Detection & Sorting
+# YOLOv12-Guided Fastener Sorting — Franka Panda ROS2 Simulation
 
-A ROS2 + Gazebo simulation of a Franka Panda robotic arm that uses YOLOv12 to detect and sort industrial fasteners (clips, rivets, screws) into separate bins — replacing traditional HSV color detection with deep learning.
+A proof-of-concept robotic integration study demonstrating end-to-end deployment of YOLOv12 for autonomous fastener segregation using a Franka Panda 7-DOF manipulator in ROS2 Humble + Ignition Gazebo.
 
-> 🔬 Based on research: *"Automated Industrial Fastener Detection: Systematic Benchmarking of YOLOv11 versus YOLOv12"* (under review)
+> Companion repository to the research paper:
+> *"Zero False-Negatives Under Data Scarcity: Can YOLO Architectures Bridge the Reliability Gap in Resource-Constrained Industrial Inspections?"* (under review)
+>
+> Dataset: [IFDD on Roboflow Universe](https://universe.roboflow.com/manufacturing-bot/manufacturing-industrial-robot)
 
-## Demo
-*Demo video coming soon*
+---
+## Simulation Screenshots
+
+![YOLOv12 Detection and Arm Motion](Screenshot_from_2026-04-25_07-04-05.png)
+*YOLOv12 detecting all three fastener classes simultaneously while the Franka Panda arm executes a pick motion*
+
+![Arm at Pick Position](Screenshot_from_2026-04-25_07-04-28.png)
+*Franka Panda arm reaching the grasp position with active YOLOv12 detection overlay*
+
+
+## Overview
+
+This simulation validates that YOLOv12's detection capability — trained on a minimal 1,442-instance dataset — can drive class-conditional robotic pick-and-place operations with zero misclassification errors across all attempted placements. The system detects all three fastener classes simultaneously and autonomously routes each to its designated bin.
+
+**Key result from the integration study:**
+- 858 detections logged across a single session
+- 10 successful pick-and-place operations completed
+- **100% correct bin assignment** — zero objects placed in wrong bin
+- 3 planning failures due to workspace boundary violations (not detection errors)
+- Full detection log available: [`pick_place_detections.txt`](./pick_place_detections.txt)
+
+> **Simulation note:** Object transport is implemented via Ignition Gazebo's native `/world/empty_world/set_pose` service due to the absence of a compatible rigid-body attachment plugin for ROS2 Humble. This is a known simulation constraint and does not affect the detection or motion planning results.
+
+---
 
 ## Tech Stack
-| Tool | Purpose |
-|------|---------|
-| ROS2 Humble | Robot middleware |
-| Gazebo | Physics simulation |
-| MoveIt2 | Motion planning |
-| YOLOv11 (Ultralytics) | Fastener detection |
-| Franka Panda | 7-DOF robotic arm |
-| Python 3 | Implementation |
 
-## Detection Performance
-| Metric | Score |
-|--------|-------|
+| Tool | Version | Purpose |
+|---|---|---|
+| ROS2 | Humble | Robot middleware |
+| Ignition Gazebo | 6 (Fortress) | Physics simulation |
+| MoveIt2 | Humble | Motion planning |
+| YOLOv12 (Ultralytics) | Latest | Fastener detection |
+| Franka Panda | 7-DOF | Robotic manipulator |
+| Python | 3.10 | Implementation |
+
+---
+
+## Detection Performance (YOLOv12 on IFDD)
+
+| Metric | Value |
+|---|---|
 | mAP@0.5 | 98.98% |
-| Recall | 100% |
+| mAP@0.5:0.95 | 96.22% |
+| Recall | 100.00% |
+| Cohen's Kappa (κ) | 1.000 |
 | Classes | Clip, Rivet, Screw |
-| Dataset | 630 images, 1442 instances |
+| Training instances | 1,317 |
+| Validation instances | 125 |
+
+---
+
+## Integration Study Results
+
+| Metric | Value |
+|---|---|
+| Total detection messages | 858 |
+| Detection rate | ~8.3 Hz |
+| Pick attempts | 13 |
+| Successful placements | 10 (76.9%) |
+| Correct bin assignments | 10 / 10 (100%) |
+| Wrong-bin placements | 0 |
+| Planning failures | 3 |
+
+---
 
 ## Project Structure
-```
-├── panda_bringup/       # Master launch file
-├── panda_vision/        # YOLOv12 fastener detector node
+
+├── panda_bringup/          # Master launch file
+├── panda_vision/           # YOLOv12 detection node
 │   └── panda_vision/
-│       ├── fastener_detector.py   # YOLOv12 inference + ROS2 publisher
-│       └── color_detector.py      # Original HSV detector (backup)
-├── panda_description/   # Robot URDF, Gazebo world
-├── panda_moveit/        # MoveIt2 config
-├── panda_controller/    # Joint & gripper controllers
-└── pymoveit2/           # Pick and place execution
-    └── examples/
-        └── pick_and_place.py      # YOLOv12-guided sorting
-```
+│       └── fastener_detector.py   # Inference + /color_coordinates publisher
+├── panda_description/      # Robot URDF, Gazebo world SDF
+├── panda_moveit/           # MoveIt2 configuration
+├── panda_controller/       # Joint and gripper controllers
+├── pymoveit2/              # Pick-and-place execution
+│   └── examples/
+│       └── pick_and_place.py      # Autonomous multi-class sorting node
+├── pick_place_detections.txt      # Full detection log from integration study
+└── Dockerfile
+
+---
 
 ## Setup
+
 ```bash
+# Create workspace
 mkdir -p ~/panda_ws/src
 cd ~/panda_ws/src
-git clone https://github.com/Ashfak-Kausik/franka-panda-fastener-detection.git
+git clone https://github.com/Ashfak-Kausik/pick-and-place.git
 cd ~/panda_ws
+
+# Install dependencies
 pip3 install "numpy<2" transforms3d ultralytics
 rosdep install --from-paths src --ignore-src -r -y
-colcon build
 
+# Build
+colcon build
 source install/setup.bash
 ```
 
+---
+
 ## Run
+
 ```bash
-# Terminal 1 — Launch simulation
+# Terminal 1 — Launch simulation (Gazebo + RViz + detector)
 ros2 launch panda_bringup pick_and_place.launch.py
 
-# Terminal 2 — YOLOv12 fastener detector
-ros2 run panda_vision fastener_detector --ros-args -p target_fastener:=Screw
+# Terminal 2 — Autonomous pick-and-place (runs after Gazebo loads)
+ros2 run pymoveit2 pick_and_place.py
 
-# Terminal 3 — Pick and place
-ros2 run pymoveit2 pick_and_place.py --ros-args -p target_color:=Screw
+# Optional — Log detections
+ros2 topic echo /color_coordinates | tee detections.txt
 ```
 
-Supported targets: `Clip`, `Rivet`, `Screw`
+The system runs fully autonomously. No target class parameter needed — all three classes are detected and sorted simultaneously.
 
-## Author
-**MD Ashfakul Karim Kausik**  
+---
+
+## How It Works
+
+Camera image → YOLOv12 inference →
+Class + bounding box →
+Pixel-to-world coordinate conversion →
+MoveIt2 motion planning →
+Pre-grasp → Grasp → Lift → Bin placement
+
+Each detected fastener is queued and processed sequentially. The correct destination bin is determined entirely by YOLOv12's class prediction — no hardcoded position mapping.
+
+---
+
+## Authors
+
+**MD Ashfakul Karim Kausik** — MIST
+**Tahsin Ahmed Refat** — MIST
+**Md. Saif Alvi** — KUET
+
+---
 
 ## Acknowledgements
-This project extends the Franka Panda Color Sorting Robot 
-by [MechaMind-Labs](https://github.com/MechaMind-Labs/Franka_Panda_Color_Sorting_Robot),
-replacing HSV color detection with a custom-trained YOLOv12 model 
-for industrial fastener classification.
+
+Extended from [Franka Panda Color Sorting Robot](https://github.com/MechaMind-Labs/Franka_Panda_Color_Sorting_Robot) by MechaMind-Labs, replacing HSV color detection with a custom-trained YOLOv12 model for semantic fastener classification.
