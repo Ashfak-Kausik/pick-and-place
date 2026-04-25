@@ -10,11 +10,23 @@ A proof-of-concept robotic integration study demonstrating end-to-end deployment
 ---
 ## Simulation Screenshots
 
-![YOLOv12 Detection and Arm Motion](Screenshot_from_2026-04-25_07-04-05.png)
-*YOLOv12 detecting all three fastener classes simultaneously while the Franka Panda arm executes a pick motion*
+![YOLO Detection](media/Screenshot%20from%202026-04-25%2004-29-29.png)
+*YOLOv11 detecting fastener classes*
 
-![Arm at Pick Position](Screenshot_from_2026-04-25_07-04-28.png)
-*Franka Panda arm reaching the grasp position with active YOLOv12 detection overlay*
+![Fastener Detector](media/Screenshot%20from%202026-04-25%2004-29-11.png)
+*Fastener detection overlay*
+
+![Terminal Output](media/Screenshot%20from%202026-04-25%2004-28-35.png)
+*Detection terminal output*
+
+![Arm at Pick Position](media/Screenshot%20from%202026-04-25%2007-04-05.png)
+*Franka Panda arm reaching grasp position*
+
+![Arm Motion](media/Screenshot%20from%202026-04-25%2007-04-28.png)
+*Franka Panda arm executing pick motion*
+
+![Gazebo Simulation](media/Screenshot%20from%202026-04-25%2006-16-51.png)
+*Gazebo simulation environment*
 
 
 ## Overview
