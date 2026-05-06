@@ -2,9 +2,9 @@
 
 A proof-of-concept robotic integration study demonstrating end-to-end deployment of YOLOv12 for autonomous fastener segregation using a Franka Panda 7-DOF manipulator in ROS2 Humble + Ignition Gazebo.
 
-> Companion repository to the research paper:
-> *"Zero False-Negatives Under Data Scarcity: Can YOLO Architectures Bridge the Reliability Gap in Resource-Constrained Industrial Inspections?"* (under review)
->
+> Companion repository to the research paper (this is one of the parts to validate a research finding of one of my recent papers). The paper sought to achieve zero false negatives under data scarcity to illustrate the extent to which validation was achieved, and to what extent a small dataset could detect industrial fasteners in challenging environments, with performance nearly matching that of a large dataset. We did three mathematical hypotheses and one simulation to support the work. This repo contains the work of the simulation part.
+> Title: *"Toward Zero Missed Detections in Low-Data Industrial Fastener Inspection: A Comparative Study of YOLOv11 and YOLOv12"* (under review)
+
 > Dataset: [IFDD on Roboflow Universe](https://universe.roboflow.com/manufacturing-bot/manufacturing-industrial-robot)
 
 ---
@@ -143,9 +143,9 @@ Each detected fastener is queued and processed sequentially. The correct destina
 
 ## Authors
 
-**MD Ashfakul Karim Kausik** — MIST
-**Tahsin Ahmed Refat** — MIST
-**Md. Saif Alvi** — KUET
+- **MD Ashfakul Karim Kausik** (MIST)
+- **Tahsin Ahmed Refat** (MIST)
+- **Md. Saif Alvi** (KUET)
 
 ---
 
